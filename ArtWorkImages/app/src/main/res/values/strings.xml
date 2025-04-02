@@ -1,0 +1,17 @@
+<resources>
+    <string name="app_name">Art Work Images</string>
+    <string name="artwork_title">Artwork Title</string>
+    <string name="artist_details">Artist Details</string>
+    <string name="TBourgeois">Maman</string>
+    <string name="THockney">Portrait of an Artist (Pool with Two Figures)</string>
+    <string name="TKoons">Balloon Dogs</string>
+    <string name="TDalí">The Persistence of Memory</string>
+    <string name="TMagritte">The Lovers</string>
+    <string name="TWyeth">Christina’s World</string>
+    <string name="LouiseBourgeois">Louise Bourgeois (1990)</string>
+    <string name="DavidHockney">David Hockney (1972)</string>
+    <string name="JeffKoons">Jeff Koons (1994)</string>
+    <string name="SalvadorDalí">Salvador Dalí (1931)</string>
+    <string name="AndrewWyeth">Andrew Wyeth (1948)</string>
+    <string name="ReneMagritte">René Magritte (1928)</string>
+</resources>

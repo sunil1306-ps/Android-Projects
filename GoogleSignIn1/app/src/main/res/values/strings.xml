@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">GoogleSignIn1</string>
+    <string name="web_client_id"><string name="app_name">GoogleSignIn1</string></string>
+</resources>

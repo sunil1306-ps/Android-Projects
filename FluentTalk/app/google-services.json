@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "210747031949",
+    "firebase_url": "https://fluenttalk-96b5e-default-rtdb.firebaseio.com",
+    "project_id": "fluenttalk-96b5e",
+    "storage_bucket": "fluenttalk-96b5e.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:210747031949:android:6dce396e67f96439dffdc4",
+        "android_client_info": {
+          "package_name": "com.mini.fluenttalk"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA4RtQpp9REqsgQW2HZiT8OHaqageZ6ua8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

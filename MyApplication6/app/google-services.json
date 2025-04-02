@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "810587901668",
+    "firebase_url": "https://rdatabase-6db5d-default-rtdb.firebaseio.com",
+    "project_id": "rdatabase-6db5d",
+    "storage_bucket": "rdatabase-6db5d.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:810587901668:android:c1310d8f8024406abee6f1",
+        "android_client_info": {
+          "package_name": "com.mini.rdatabase"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAqm-YfBfPTnbbtHSmJXNf9rL05OeKaqq4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
