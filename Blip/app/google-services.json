@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "217707097462",
+    "project_id": "blip-d59c2",
+    "storage_bucket": "blip-d59c2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:217707097462:android:eb37dfba4f80df37c39e57",
+        "android_client_info": {
+          "package_name": "com.pstudio.blip"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD2qpWX-XbNDI48t_PFFPhnBFUa58cFYAY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
