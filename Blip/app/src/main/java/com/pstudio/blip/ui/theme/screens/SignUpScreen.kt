@@ -49,7 +49,11 @@ import com.pstudio.blip.ui.theme.BlipTheme
 import com.pstudio.blip.viewmodels.AuthViewModel
 
 @Composable
-fun SignUpScreen(navController: NavHostController, authViewModel: AuthViewModel, modifier: Modifier = Modifier) {
+fun SignUpScreen(
+    navController: NavHostController,
+    authViewModel: AuthViewModel,
+    modifier: Modifier = Modifier
+) {
 
     val context = LocalContext.current
     var email by remember { mutableStateOf("") }
@@ -222,8 +226,4 @@ fun SignUpScreen(navController: NavHostController, authViewModel: AuthViewModel,
 }
 
 
-@Preview(showSystemUi = true, showBackground = true)
-@Composable
-private fun SignUpPreview() {
-    //BlipTheme { SignUpScreen() }
-}
+

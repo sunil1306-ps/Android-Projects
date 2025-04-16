@@ -1,5 +1,6 @@
 package com.pstudio.blip.viewmodels
 
+import android.net.Uri
 import android.util.Log
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.State
@@ -14,6 +15,8 @@ import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 import com.pstudio.blip.data.Message
+import com.pstudio.blip.utilclasses.AESUtils
+import com.pstudio.blip.utilclasses.AESUtils.decryptIfNeeded
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import okhttp3.Call
@@ -112,7 +115,9 @@ class ChatViewModel: ViewModel() {
                         val message = messageSnap.getValue(Message::class.java)
                         message?.let {
                             val msgWithId = it.copy(messageId = messageSnap.key ?: "")
-                            messages.add(msgWithId)
+                            val decryptedMessage = msgWithId.decryptIfNeeded()
+
+                            messages.add(decryptedMessage)
                         }
                     }
 
@@ -133,7 +138,6 @@ class ChatViewModel: ViewModel() {
     }
 
     private var onlineStatusListener: ValueEventListener? = null
-
     fun listenToUserOnlineStatus(userId: String) {
         val onlineRef = dbRef.child("users").child(userId).child("online")
 
@@ -163,28 +167,49 @@ class ChatViewModel: ViewModel() {
         }
     }
 
-    fun sendMessage(receiverId: String, senderUserName: String, messageText: String) {
-
+    fun sendMessage(
+        receiverId: String,
+        senderUserName: String,
+        messageText: String,
+        messageType: String = "text",
+        mediaIv: String = "",
+        mimeType: String = "",
+        fileName: String = "",
+        localUri: String = ""
+    ) {
         val senderId = auth.currentUser?.uid ?: return
-        val senderUserName = senderUserName
-        val replyto = _replyingToMessage.value
+        val replyTo = _replyingToMessage.value
 
         if (messageText.isBlank()) return
 
         val chatId = generateChatId(senderId, receiverId)
         val messageId = dbRef.push().key ?: UUID.randomUUID().toString()
 
+        val (encryptedMessage, iv) = AESUtils.encrypt(messageText)
+
         val message = Message(
             messageId = messageId,
-            message = messageText,
+            message = encryptedMessage,
+            iv = iv,
+            mediaIv = mediaIv,
+            fileName = fileName,
+            localUri = localUri,
             senderId = senderId,
             senderUserName = senderUserName,
             receiverId = receiverId,
             timestamp = System.currentTimeMillis(),
-            replyTo = replyto
+            messageType = messageType,
+            mimeType = mimeType,
+            replyTo = replyTo
         )
 
-        // 1. Upload to Firebase
+        val decryptedMessage = message.decryptIfNeeded()
+
+        val existingMessages = _chats[receiverId]?.toMutableList() ?: mutableListOf()
+        existingMessages.add(decryptedMessage)
+        _chats[receiverId] = existingMessages
+//        _chatUiState.value = ChatUiState.Success
+
         dbRef.child("chats")
             .child(chatId)
             .child("messages")
@@ -197,7 +222,6 @@ class ChatViewModel: ViewModel() {
                     .addOnSuccessListener { snapshot ->
                         val playerId = snapshot.getValue(String::class.java)
                         if (playerId != null) {
-                            Log.d("notification", "playerId found.")
                             dbRef.child("users").child(receiverId).child("online")
                                 .addListenerForSingleValueEvent(object : ValueEventListener {
                                     override fun onDataChange(snapshot: DataSnapshot) {
@@ -211,7 +235,6 @@ class ChatViewModel: ViewModel() {
                                         Log.e("Notify", "Failed to check receiver's online state: ${error.message}")
                                     }
                                 })
-
                         }
                     }
 
@@ -221,10 +244,15 @@ class ChatViewModel: ViewModel() {
                 Log.e("ChatViewModel", "Failed to send message", it)
                 _chatUiState.value = ChatUiState.Error("Failed to send message")
             }
+
         cancelReplying()
     }
 
-    fun markMessagesAsSeen(currentUserId: String, friendId: String) {
+
+    fun markMessagesAsSeen(
+        currentUserId: String,
+        friendId: String
+    ) {
         val chatId = generateChatId(currentUserId, friendId)
         val messagesRef = dbRef.child("chats").child(chatId).child("messages")
 
@@ -251,7 +279,10 @@ class ChatViewModel: ViewModel() {
     }
 
     private var messageListeners = mutableMapOf<String, ChildEventListener>()
-    fun listenForMessages(friendId: String, currentUserId: String) {
+    fun listenForMessages(
+        friendId: String,
+        currentUserId: String
+    ) {
         val chatId = generateChatId(friendId, currentUserId)
         val messagesRef = dbRef.child("chats").child(chatId).child("messages")
 
@@ -261,19 +292,23 @@ class ChatViewModel: ViewModel() {
         val listener = messagesRef.addChildEventListener(object : ChildEventListener {
             override fun onChildAdded(snapshot: DataSnapshot, previousChildName: String?) {
                 val message = snapshot.getValue(Message::class.java)
-                message?.let {
+                val decryptedMessage = message?.decryptIfNeeded()
+                decryptedMessage?.let {
                     val existingMessages = chats[friendId]?.toMutableList() ?: mutableListOf()
 
                     // Avoid adding duplicates (based on message ID or timestamp)
-                    val alreadyExists = existingMessages.any { it.timestamp == message.timestamp && it.message == message.message && it.senderId == message.senderId }
+                    val alreadyExists = existingMessages.any {
+                        it.timestamp == decryptedMessage.timestamp ||
+                        it.messageId == decryptedMessage.messageId
+                    }
 
                     if (!alreadyExists) {
-                        existingMessages.add(message)
+                        existingMessages.add(decryptedMessage)
                         chats[friendId] = existingMessages
                         _chatUiState.value = ChatUiState.Success
                     }
                     val isInChatWithFriend = activeChatUserId.value == friendId
-                    if (message.receiverId == currentUserId && !message.seen && isInChatWithFriend) {
+                    if (decryptedMessage.receiverId == currentUserId && !decryptedMessage.seen && isInChatWithFriend) {
                         markMessagesAsSeen(currentUserId, friendId)
                     }
                 }
@@ -281,7 +316,8 @@ class ChatViewModel: ViewModel() {
 
             override fun onChildChanged(snapshot: DataSnapshot, previousChildName: String?) {
                 val updatedMessage = snapshot.getValue(Message::class.java)
-                updatedMessage?.let { newMsg ->
+                val decryptedMessage = updatedMessage?.decryptIfNeeded()
+                decryptedMessage?.let { newMsg ->
                     val existingMessages = chats[friendId]?.toMutableList() ?: return
 
                     val index = existingMessages.indexOfFirst { it.messageId == newMsg.messageId }
@@ -312,7 +348,10 @@ class ChatViewModel: ViewModel() {
         messageListeners[chatId] = listener
     }
 
-    fun deleteMessage(friendId: String, messageId: String) {
+    fun deleteMessage(
+        friendId: String,
+        messageId: String
+    ) {
 
         val currentUserId = auth.currentUser?.uid ?: return
         val chatId = generateChatId(friendId, currentUserId)
@@ -327,7 +366,10 @@ class ChatViewModel: ViewModel() {
 
     }
 
-    fun editMessage(friendId: String, newText: String) {
+    fun editMessage(
+        friendId: String,
+        newText: String
+    ) {
         val messageToEdit = _editingMessage.value ?: return
         val chatId = generateChatId(messageToEdit.senderId, messageToEdit.receiverId)
 

@@ -84,7 +84,13 @@ import java.util.Date
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun HomeScreen(navController: NavHostController, authViewModel: AuthViewModel, userViewModel: UserViewModel, chatViewModel: ChatViewModel, modifier: Modifier = Modifier) {
+fun HomeScreen(
+    navController: NavHostController,
+    authViewModel: AuthViewModel,
+    userViewModel: UserViewModel,
+    chatViewModel: ChatViewModel,
+    modifier: Modifier = Modifier
+) {
 
     val context = LocalContext.current
     val application = LocalContext.current.applicationContext as Application
@@ -387,7 +393,13 @@ fun HomeScreen(navController: NavHostController, authViewModel: AuthViewModel, u
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun ContactCard(userName: String, onClick: () -> Unit, lastMessage: String, timeStamp: String, modifier: Modifier = Modifier) {
+fun ContactCard(
+    userName: String,
+    onClick: () -> Unit,
+    lastMessage: String,
+    timeStamp: String,
+    modifier: Modifier = Modifier
+) {
 
     Row(
         modifier = modifier
@@ -444,10 +456,4 @@ fun ContactCard(userName: String, onClick: () -> Unit, lastMessage: String, time
 
 }
 
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-private fun HomeScreenPreview() {
-    BlipTheme {
-        //HomeScreen()
-    }
-}
+

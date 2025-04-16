@@ -26,6 +26,7 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import com.cloudinary.android.MediaManager
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import com.google.firebase.FirebaseApp
 import com.onesignal.debug.LogLevel
@@ -36,6 +37,9 @@ import com.pstudio.blip.ui.theme.screens.HomeScreen
 import com.pstudio.blip.ui.theme.screens.LogInScreen
 import com.pstudio.blip.ui.theme.screens.SignUpScreen
 import com.pstudio.blip.ui.theme.screens.SplashScreen
+import com.pstudio.blip.utilclasses.hasStoragePermission
+import com.pstudio.blip.utilclasses.requestLegacyStoragePermissions
+import com.pstudio.blip.utilclasses.requestManageAllFilesPermission
 import com.pstudio.blip.viewmodels.AuthViewModel
 import com.pstudio.blip.viewmodels.ChatViewModel
 import com.pstudio.blip.viewmodels.UserViewModel
@@ -44,9 +48,20 @@ import com.pstudio.blip.viewmodels.UserViewModel
 class MainActivity : ComponentActivity() {
 
     private lateinit var navController: NavHostController
+    private val STORAGE_PERMISSION_REQUEST_CODE = 123
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        if (!hasStoragePermission(this)) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                requestManageAllFilesPermission(this)
+            } else {
+                (this as? Activity)?.let { requestLegacyStoragePermissions(it, STORAGE_PERMISSION_REQUEST_CODE) }
+            }
+        } else {
+            // Safe to write to /storage/emulated/0/Blip/...
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
@@ -54,6 +69,11 @@ class MainActivity : ComponentActivity() {
                 "Chat Messages",
                 NotificationManager.IMPORTANCE_HIGH
             )
+            val config = HashMap<String, String>()
+            config["cloud_name"] = "dktkdph2n"
+            config["upload_preset"] = "blip_preset"
+
+            MediaManager.init(this, config)
             channel.description = "Notifications for new messages"
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(channel)

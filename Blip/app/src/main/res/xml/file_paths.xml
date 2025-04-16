@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <external-files-path name="external_files" path="." />
+    <external-files-path name="blip_files" path="Blip/" />
+    <external-files-path name="images" path="Blip/Images/" />
+    <external-files-path name="videos" path="Blip/Videos/" />
+    <external-files-path name="documents" path="Blip/Documents/" />
+    <external-path
+        name="external_public"
+        path="Blip/" />
+    <files-path name="blip_files" path="Blip/" />
+</paths>

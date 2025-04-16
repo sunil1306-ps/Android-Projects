@@ -39,7 +39,11 @@ import com.pstudio.blip.viewmodels.AuthViewModel
 import kotlinx.coroutines.delay
 
 @Composable
-fun SplashScreen(navController: NavHostController, authViewModel: AuthViewModel, modifier: Modifier = Modifier) {
+fun SplashScreen(
+    navController: NavHostController,
+    authViewModel: AuthViewModel,
+    modifier: Modifier = Modifier
+) {
     val scale = remember { Animatable(0f) }
     val authState by authViewModel.authState.collectAsState()
     val userId = (authState as? AuthViewModel.AuthState.Success)?.userId?: "Unknown"
@@ -117,12 +121,4 @@ fun SplashScreen(navController: NavHostController, authViewModel: AuthViewModel,
 //                .size(40.dp)
 //        )
 //    }
-}
-
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-private fun SplashScreenPreview() {
-    BlipTheme {
-        //SplashScreen()
-    }
 }

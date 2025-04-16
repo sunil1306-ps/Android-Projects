@@ -57,7 +57,11 @@ import com.pstudio.blip.viewmodels.AuthViewModel
 import kotlinx.coroutines.delay
 
 @Composable
-fun LogInScreen(navController: NavHostController, authViewModel: AuthViewModel, modifier: Modifier = Modifier) {
+fun LogInScreen(
+    navController: NavHostController,
+    authViewModel: AuthViewModel,
+    modifier: Modifier = Modifier
+) {
 
     val context = LocalContext.current
     var text by remember { mutableStateOf("Login") }
