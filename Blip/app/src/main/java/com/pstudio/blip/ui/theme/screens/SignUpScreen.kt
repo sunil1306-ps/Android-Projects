@@ -194,7 +194,7 @@ fun SignUpScreen(
                                     if (email.isBlank() || password.isBlank() || username.isBlank()) {
                                         Toast.makeText(context, "All fields are required!", Toast.LENGTH_SHORT).show()
                                     } else {
-                                        authViewModel.signUp(email, password, username)
+                                        authViewModel.signUp(context, email, password, username)
                                     }
                                 },
                                 border = BorderStroke(2.dp, Color.Black),

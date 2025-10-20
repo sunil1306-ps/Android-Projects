@@ -1,8 +1,14 @@
 package com.pstudio.blip.ui.theme.screens
 
+import CloudinaryUploader
+import android.content.Context
+import android.app.Activity
 import android.app.Application
+import android.net.Uri
 import android.os.Build
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -17,6 +23,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -32,6 +39,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -51,6 +60,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Alignment.Companion.BottomCenter
+import androidx.compose.ui.Alignment.Companion.Center
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
@@ -68,19 +78,31 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.navigation.NavHostController
+import coil.compose.AsyncImage
+import coil.request.CachePolicy
+import coil.request.ImageRequest
 import com.pstudio.blip.AppStateManager
 import com.pstudio.blip.R
 import com.pstudio.blip.SetStatusBarColor
+import com.pstudio.blip.data.MessageStatus
 import com.pstudio.blip.ui.theme.BlipTheme
+import com.pstudio.blip.utilclasses.AESUtils
+import com.pstudio.blip.utilclasses.FileEncryptionUtil
 import com.pstudio.blip.utilclasses.formatTimestamp
+import com.pstudio.blip.utilclasses.handlePickedFile
 import com.pstudio.blip.viewmodels.AuthViewModel
 import com.pstudio.blip.viewmodels.ChatUiState
 import com.pstudio.blip.viewmodels.ChatViewModel
 import com.pstudio.blip.viewmodels.FetchState
 import com.pstudio.blip.viewmodels.UserViewModel
+import com.yalantis.ucrop.UCrop
+import java.io.File
 import java.time.LocalDate
 import java.util.Date
+import java.util.Locale
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -99,11 +121,19 @@ fun HomeScreen(
     val userId = (authState as? AuthViewModel.AuthState.Success)?.userId?: "Unknown"
     val fetchState by userViewModel.fetchState.collectAsState()
     val friendsList by userViewModel.friendsList.collectAsState()
+    var sortedFriendsList = remember(friendsList, chatViewModel.chats) {
+        friendsList.sortedByDescending { friend ->
+            chatViewModel.chats[friend.uid]?.lastOrNull()?.timestamp ?: 0L
+        }
+    }
 
     var searchText by remember { mutableStateOf("") }
     var messageOffset by remember { mutableStateOf(Offset.Zero) }
     var selectedFriendId by remember { mutableStateOf<String?>(null) }
     var showMenu by remember { mutableStateOf(false) }
+    var showProfileDialog by remember { mutableStateOf(false) }
+
+    val profileUrl = userViewModel.profileUrl
 
     SetStatusBarColor(Color.Black)
 
@@ -141,7 +171,8 @@ fun HomeScreen(
         ) {
 
             Row(
-                modifier = modifier.fillMaxHeight()
+                modifier = modifier
+                    .fillMaxHeight()
                     .background(Color.Black),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -149,14 +180,40 @@ fun HomeScreen(
                     modifier = modifier
                         .padding(start = 20.dp)
                 ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.doreamon),
-                        contentDescription = "Profile Pic",
-                        contentScale = ContentScale.Crop,
-                        modifier = modifier.size(45.dp)
-                            .clip(CircleShape)
-                            .border(2.dp, Color.Green, CircleShape)
-                    )
+                    if (profileUrl != null) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data(profileUrl)
+                                .crossfade(true)
+                                .diskCachePolicy(CachePolicy.ENABLED)
+                                .memoryCachePolicy(CachePolicy.ENABLED)
+                                .size(coil.size.Size.ORIGINAL)
+                                .build(),
+                            contentDescription = "Profile Pic",
+                            contentScale = ContentScale.Fit,
+                            modifier = modifier
+                                .size(45.dp)
+                                .clip(CircleShape)
+                                .border(2.dp, Color.Green, CircleShape)
+                                .clickable {
+                                    showProfileDialog = true
+                                }
+                        )
+                    }else {
+                        Image(
+                            painter = painterResource(id = R.drawable.doreamon),
+                            contentDescription = "Profile Pic",
+                            contentScale = ContentScale.Crop,
+                            modifier = modifier
+                                .size(45.dp)
+                                .clip(CircleShape)
+                                .border(2.dp, Color.Green, CircleShape)
+                                .clickable {
+                                    showProfileDialog = true
+                                }
+                        )
+                    }
+
                 }
 
                 Text(
@@ -177,7 +234,9 @@ fun HomeScreen(
                         navController.navigate("loginscreen") {
                             popUpTo("homescreen") { inclusive = true }
                         }
-                        Toast.makeText(context, "Logged out successfully!", Toast.LENGTH_SHORT).show()
+                        Toast
+                            .makeText(context, "Logged out successfully!", Toast.LENGTH_SHORT)
+                            .show()
                     },
                 colors = CardDefaults.cardColors(
                     containerColor = Color.Gray
@@ -187,7 +246,8 @@ fun HomeScreen(
                     text = "YakYak",
                     color = Color.White,
                     fontSize = 20.sp,
-                    modifier = modifier.padding(start = 10.dp, end = 10.dp)
+                    modifier = modifier
+                        .padding(start = 10.dp, end = 10.dp)
                         .padding(vertical = 2.dp),
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold
@@ -317,7 +377,7 @@ fun HomeScreen(
                     }
                     Spacer(modifier.height(10.dp))
                     LazyColumn {
-                        items(friendsList) { friend ->
+                        items(sortedFriendsList) { friend ->
                             Box(
                                 modifier = modifier
                                     .onGloballyPositioned { coordinates ->
@@ -340,15 +400,18 @@ fun HomeScreen(
 
                                 val messageText = lastMessage?.message ?: "No messages yet"
                                 val time = lastMessage?.timestamp?.let { formatTimestamp(it) } ?: ""
+                                val messageType = lastMessage?.messageType ?: "text"
+                                val lastMsgStatus = lastMessage?.status != MessageStatus.SEEN && userId == lastMessage?.receiverId
 
                                 ContactCard(
                                     userName = friend.username,
                                     onClick = {
                                         navController.navigate("chatscreen/${friend.uid}/${friend.username}")
-
                                     },
                                     lastMessage = messageText,
-                                    timeStamp = time
+                                    timeStamp = time,
+                                    messageType,
+                                    lastMsgStatus = lastMsgStatus
                                 )
 
                                 if (showMenu && selectedFriendId == friend.uid) {
@@ -389,6 +452,13 @@ fun HomeScreen(
 
     }
 
+    if (showProfileDialog) {
+        ProfilePictureDialog(
+            onDismiss = { showProfileDialog = false },
+            userViewModel
+        )
+    }
+
 }
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -398,8 +468,11 @@ fun ContactCard(
     onClick: () -> Unit,
     lastMessage: String,
     timeStamp: String,
+    messageType: String,
+    lastMsgStatus: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
 
     Row(
         modifier = modifier
@@ -421,21 +494,43 @@ fun ContactCard(
                     painter = painterResource(id = R.drawable.doreamon),
                     contentDescription = "Profile Pic",
                     contentScale = ContentScale.Crop,
-                    modifier = modifier.size(40.dp)
+                    modifier = modifier
+                        .size(40.dp)
                         .clip(CircleShape)
                 )
             }
 
             Column {
+                Row(
+                    modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = userName,
+                            color = Color.White,
+                            modifier = modifier.padding(start = 20.dp),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp
+                        )
+                        Spacer(modifier.width(6.dp))
+                        if (lastMsgStatus) {
+                            Box(
+                                modifier = modifier
+                                    .size(6.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.Green)
+                            )
+                        }
+                    }
+                    Text(
+                        text = timeStamp,
+                        color = Color.White,
+                        fontSize = 12.sp
+                    )
+                }
                 Text(
-                    text = userName,
-                    color = Color.White,
-                    modifier = modifier.padding(start = 20.dp),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp
-                )
-                Text(
-                    text = lastMessage,
+                    text = if (messageType == "text") lastMessage else messageType.capitalize(Locale.ROOT),
                     color = Color.White,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -446,14 +541,139 @@ fun ContactCard(
             }
         }
 
-        Text(
-            text = timeStamp,
-            color = Color.White,
-            fontSize = 12.sp
-        )
-
     }
 
 }
+
+@Composable
+fun ProfilePictureDialog(
+    onDismiss: () -> Unit,
+    userViewModel: UserViewModel,
+    modifier: Modifier = Modifier
+) {
+
+    val context = LocalContext.current
+    val uploader = CloudinaryUploader()
+    val profileUrl = userViewModel.profileUrl
+
+    val cropLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val resultUri = UCrop.getOutput(result.data!!)
+            resultUri?.let {
+                uploader.uploadImageToCloudinary(
+                    context = context,
+                    uri = it,
+                    unsignedPreset = "blip_preset",
+                    onProgress = {},
+                    onComplete = { success, url, error ->
+                        val (encryptedUrl, iv) = AESUtils.encrypt(url)
+                        if (success) {
+                            userViewModel.setProfilePic(encryptedUrl, iv)
+                        } else {
+                            Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                )
+            }
+        }
+    }
+
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let {
+            val destinationUri = Uri.fromFile(File(context.cacheDir, "cropped.jpg"))
+
+            val intent = UCrop.of(uri, destinationUri)
+                .withAspectRatio(1f, 1f)
+                .withMaxResultSize(512, 512)
+                .getIntent(context)
+
+            cropLauncher.launch(intent)
+        }
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.6f))
+                .clickable { /*onDismiss()*/ },
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+
+            ) {
+                if (profileUrl != null) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(profileUrl)
+                            .crossfade(true)
+                            .diskCachePolicy(CachePolicy.ENABLED)
+                            .memoryCachePolicy(CachePolicy.ENABLED)
+                            .size(coil.size.Size.ORIGINAL)
+                            .build(),
+                        contentDescription = "Profile Pic",
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .fillMaxWidth(0.9f)
+                            .aspectRatio(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                    )
+                } else {
+                    Image(
+                        painter = painterResource(id = R.drawable.doreamon), // Use your profile image
+                        contentDescription = "Profile Picture",
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .fillMaxWidth(0.9f)
+                            .aspectRatio(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                    )
+                }
+                Spacer(modifier.height(10.dp))
+                Row(
+                    modifier.padding(start = 20.dp)
+                ) {
+                    Box(
+                        modifier = modifier
+                            .border(2.dp, Color.White, CircleShape)
+                            .size(35.dp),
+                        contentAlignment = Center
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.baseline_edit_24),
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = modifier
+                                .size(30.dp)
+                                .clickable {
+                                    galleryLauncher.launch("image/*")
+                                }
+                        )
+                    }
+                }
+            }
+
+            // Close button
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "Close",
+                tint = Color.White,
+                modifier = Modifier
+                    .size(40.dp)
+                    .align(Alignment.TopEnd)
+                    .clickable { onDismiss() }
+            )
+        }
+    }
+}
+
+
 
 

@@ -7,8 +7,10 @@ import com.google.firebase.database.ChildEventListener
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.GenericTypeIndicator
 import com.google.firebase.database.ValueEventListener
 import com.pstudio.blip.data.User
+import com.pstudio.blip.utilclasses.AESUtils
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -27,6 +29,8 @@ class UserViewModel : ViewModel() {
     private var friendsListener: ChildEventListener? = null
     private var currentListenerUserId: String? = null
 
+    private val auth = FirebaseAuth.getInstance()
+
     private val _friendsList = MutableStateFlow<List<User>>(emptyList())
     val friendsList: StateFlow<List<User>> = _friendsList
 
@@ -36,8 +40,17 @@ class UserViewModel : ViewModel() {
     private val _searchResults = MutableStateFlow<List<User>>(emptyList())
     val searchResults: StateFlow<List<User>> = _searchResults
 
+    var profileUrl: String? = null
+
     init {
         setUserPresence()
+        getProfilePic(
+            callback = { url, iv, error ->
+                if (url != null && iv != null) {
+                    profileUrl = AESUtils.decrypt(url, iv)
+                }
+            }
+        )
     }
 
     private fun setUserPresence() {
@@ -62,7 +75,6 @@ class UserViewModel : ViewModel() {
             })
         }
     }
-
 
     // Add user from database by username
     fun addFriendByUsername(
@@ -107,6 +119,57 @@ class UserViewModel : ViewModel() {
 
     }
 
+    fun getProfilePic(callback: (String?, String?, String?) -> Unit) {
+        val userId = auth.currentUser?.uid ?: run {
+            callback(null, null, "User not authenticated")
+            return
+        }
+
+        val profileRef = dbRef.child(userId).child("profile")
+        profileRef.addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                if (snapshot.exists()) {
+                    val details = snapshot.getValue(object : GenericTypeIndicator<Map<String, String>>() {})
+                    val url = details?.get("profileUrl")
+                    val iv = details?.get("profileIv")
+
+                    if (url != null) {
+                        callback(url, iv, null)
+                    } else {
+                        callback(null, null, "Profile URL not found")
+                    }
+                } else {
+                    callback(null, null, "Profile data does not exist")
+                }
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                callback(null, null, "Database error: ${error.message}")
+            }
+        })
+    }
+
+    fun setProfilePic(url: String, iv: String) {
+
+        val userId = auth.currentUser?.uid
+        val details = mapOf(
+            "profileUrl" to url,
+            "profileIv" to iv
+        )
+        dbRef.child(userId!!).child("profile").setValue(details)
+            .addOnSuccessListener {
+                Log.d("profilePic", "profilePic successfully updated.")
+            }
+            .addOnFailureListener {
+                Log.d("profilePic", "Failed to update profilePic")
+            }
+
+
+        getProfilePic(){
+            url, iv, error ->
+            profileUrl = AESUtils.decrypt(url!!, iv!!)
+        }
+    }
 
     // Fetch friends list
     fun fetchFriendsList(userId: String) {

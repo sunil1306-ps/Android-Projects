@@ -1,5 +1,6 @@
 package com.pstudio.blip.ui.theme.screens
 
+import UserPreferences
 import android.app.Activity
 import android.app.Application
 import android.os.Handler
@@ -70,7 +71,7 @@ fun LogInScreen(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     val authState by authViewModel.authState.collectAsState()
-
+    val userPrefs = UserPreferences(context)
 
     BackHandler {
         backCount++
@@ -195,7 +196,7 @@ fun LogInScreen(
                                     if (email.isBlank() || password.isBlank()) {
                                         Toast.makeText(context, "Email and password cannot be empty!", Toast.LENGTH_SHORT).show()
                                     } else {
-                                        authViewModel.login(email, password)
+                                        authViewModel.login(context, email, password)
                                     }
                                 },
                                 border = BorderStroke(2.dp, Color.Black),

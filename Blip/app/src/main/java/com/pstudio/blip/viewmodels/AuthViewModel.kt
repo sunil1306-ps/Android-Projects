@@ -1,6 +1,9 @@
 package com.pstudio.blip.viewmodels
 
+import UserPreferences
+import android.content.Context
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.database.FirebaseDatabase
@@ -8,6 +11,7 @@ import com.google.firebase.messaging.FirebaseMessaging
 import com.onesignal.OneSignal
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 
 class AuthViewModel : ViewModel() {
 
@@ -17,6 +21,7 @@ class AuthViewModel : ViewModel() {
     val authState: StateFlow<AuthState>  = _authState
 
     private val database = FirebaseDatabase.getInstance().reference.child("users")
+
 
     init {
         checkLoggedInUser()  // Automatically fetch user details on startup
@@ -41,9 +46,10 @@ class AuthViewModel : ViewModel() {
     }
 
     // Signup function
-    fun signUp(email: String, password: String, username: String) {
+    fun signUp(context: Context, email: String, password: String, username: String) {
 
         val playerId = OneSignal.User.pushSubscription.id
+        val userPrefs = UserPreferences(context)
 
         if (email.isBlank() || password.isBlank() || username.isBlank()) {
             _authState.value = AuthState.Error("All fields are required!")
@@ -75,6 +81,9 @@ class AuthViewModel : ViewModel() {
                         database.child(userId).setValue(userMap)
                             .addOnSuccessListener {
                                 _authState.value = AuthState.Success(user.uid, username)
+                                viewModelScope.launch {
+                                    userPrefs.saveUser(user.uid, user.email!!, user.displayName!!)
+                                }
                             }
                             .addOnFailureListener { e ->
                                 _authState.value = AuthState.Error(e.message ?: "Failed to store user data")
@@ -88,8 +97,8 @@ class AuthViewModel : ViewModel() {
     }
 
     // Login function
-    fun login(email: String, password: String) {
-
+    fun login(context: Context, email: String, password: String) {
+        val userPrefs = UserPreferences(context)
         val playerId = OneSignal.User.pushSubscription.id
         if (email.isBlank() || password.isBlank()) {
             _authState.value = AuthState.Error("Email and password cannot be empty!")
@@ -104,6 +113,9 @@ class AuthViewModel : ViewModel() {
                     if (user != null) {
                         database.child(user.uid).child("playerId").setValue(playerId)
                         _authState.value = AuthState.Success(user.uid, user.displayName ?: "Unknown")
+                        viewModelScope.launch {
+                            userPrefs.saveUser(user.uid, user.email!!, user.displayName!!)
+                        }
                     }
                 } else {
                     _authState.value = AuthState.Error(task.exception?.message ?: "Login failed")

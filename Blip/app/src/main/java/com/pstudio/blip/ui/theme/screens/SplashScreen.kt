@@ -1,5 +1,6 @@
 package com.pstudio.blip.ui.theme.screens
 
+import UserPreferences
 import android.view.animation.OvershootInterpolator
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
@@ -22,11 +23,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -37,6 +40,7 @@ import com.pstudio.blip.SetStatusBarColor
 import com.pstudio.blip.ui.theme.BlipTheme
 import com.pstudio.blip.viewmodels.AuthViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun SplashScreen(
@@ -44,9 +48,12 @@ fun SplashScreen(
     authViewModel: AuthViewModel,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val scale = remember { Animatable(0f) }
     val authState by authViewModel.authState.collectAsState()
     val userId = (authState as? AuthViewModel.AuthState.Success)?.userId?: "Unknown"
+    val userPrefs = UserPreferences(context)
+    val coroutineScope = rememberCoroutineScope()
 
     SetStatusBarColor(Color.Black)
     // AnimationEffect
@@ -110,15 +117,4 @@ fun SplashScreen(
             }
         }
     }
-
-//    Box(contentAlignment = Alignment.Center,
-//        modifier = Modifier.fillMaxSize().background(Color.Black)) {
-//        Image(
-//            painterResource(id = R.drawable.ic_launcher_foreground),
-//            contentDescription = "Logo",
-//            modifier = Modifier
-//                .scale(scale.value)
-//                .size(40.dp)
-//        )
-//    }
 }

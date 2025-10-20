@@ -1,43 +1,98 @@
 package com.pstudio.blip.utilclasses
 
+import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Environment
+import android.provider.OpenableColumns
+import android.util.Log
 import androidx.core.content.FileProvider
+import com.pstudio.blip.data.CopiedFile
 import java.io.File
 import java.io.FileOutputStream
 
-fun openDecryptedFile(context: Context, file: File, mimeType: String) {
-    val uri = FileProvider.getUriForFile(
-        context,
-        "${context.packageName}.provider",
-        file
-    )
 
-    val intent = Intent(Intent.ACTION_VIEW).apply {
-        setDataAndType(uri, mimeType)
-        flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK
-    }
+fun copyFileToCustomDirectory(
+    context: Context,
+    uri: Uri,
+    mediaType: String,
+    flag: String = ""
+): CopiedFile? {
+    try {
+        val resolver = context.contentResolver
 
-    context.startActivity(intent)
-}
+        // Get original file name
+        val originalName = getFileNameFromUri(context, uri) ?: return null
 
-fun copyUriToInternalStorage(context: Context, uri: Uri, fileName: String): File? {
-    return try {
-        val inputStream = context.contentResolver.openInputStream(uri) ?: return null
-        val targetDir = File(context.filesDir, "Blip/Media") // or your preferred location
-        if (!targetDir.exists()) targetDir.mkdirs()
+        val downloadsFolder = if (flag.isEmpty())
+            File(context.getExternalFilesDir(null), "Blip/$mediaType")
+        else
+            File(Environment.getExternalStorageDirectory(), "Blip/$mediaType")
 
-        val safeName = fileName.replace("[^a-zA-Z0-9.-]".toRegex(), "_")
-        val targetFile = File(targetDir, safeName)
-
-        FileOutputStream(targetFile).use { output ->
-            inputStream.copyTo(output)
+        if (!downloadsFolder.exists()) {
+            downloadsFolder.mkdirs()
         }
 
-        targetFile // Return the copied file
+        val destFile = File(downloadsFolder, originalName)
+
+        resolver.openInputStream(uri)?.use { inputStream ->
+            FileOutputStream(destFile).use { outputStream ->
+                inputStream.copyTo(outputStream)
+            }
+        }
+
+        // Get URI from file
+        val fileUri = FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            destFile
+        )
+
+        return CopiedFile(destFile, fileUri)
+
     } catch (e: Exception) {
         e.printStackTrace()
-        null
+        Log.e("FileCopy", "Error copying file: ${e.message}")
+        return null
+    }
+}
+
+
+fun getFileNameFromUri(context: Context, uri: Uri): String? {
+    var result: String? = null
+    if (uri.scheme == "content") {
+        context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (cursor.moveToFirst() && nameIndex != -1) {
+                result = cursor.getString(nameIndex)
+            }
+        }
+    }
+    if (result == null) {
+        result = uri.path?.substringAfterLast('/')
+    }
+    return result
+}
+
+fun isFileSizeWithinLimit(context: Context, uri: Uri, maxSizeInMB: Int = 10): Boolean {
+    val fileSizeInBytes = context.contentResolver.openAssetFileDescriptor(uri, "r")?.use {
+        it.length
+    } ?: return false
+
+    val fileSizeInMB = fileSizeInBytes / (1024 * 1024)
+    return fileSizeInMB <= maxSizeInMB
+}
+
+fun uriToTempFile(context: Context, uri: Uri, onSuccess: (success: Boolean, file: File?) -> Unit) {
+    try {
+        val inputStream = context.contentResolver.openInputStream(uri) ?: return
+        val tempFile = File.createTempFile("temp_", null, context.cacheDir)
+        tempFile.outputStream().use { outputStream ->
+            inputStream.copyTo(outputStream)
+        }
+        onSuccess(true, tempFile)
+    } catch (e: Exception) {
+        onSuccess(false, null)
     }
 }

@@ -12,17 +12,20 @@ import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
 object AppStateManager : LifecycleObserver {
 
     private var userId: String? = null
     private val dbRef = FirebaseDatabase.getInstance().getReference("users")
 
+    private val _isAppInForeground = MutableStateFlow(true)
+    val isAppInForeground: StateFlow<Boolean> = _isAppInForeground
+
     fun register(application: Application, uid: String) {
         userId = uid
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)
-
-        // Also hook into .info/connected to clean up on termination
         setupOnDisconnect()
     }
 
@@ -44,18 +47,16 @@ object AppStateManager : LifecycleObserver {
 
     @OnLifecycleEvent(Lifecycle.Event.ON_START)
     fun onEnterForeground() {
-        isAppInForeground = true
+        _isAppInForeground.value = true
         userId?.let { dbRef.child(it).child("online").setValue(true) }
     }
 
     @OnLifecycleEvent(Lifecycle.Event.ON_STOP)
     fun onEnterBackground() {
-        isAppInForeground = false
+        _isAppInForeground.value = false
         userId?.let { dbRef.child(it).child("online").setValue(false) }
     }
-
-    var isAppInForeground = true
-        private set
 }
+
 
 
